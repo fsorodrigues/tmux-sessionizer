@@ -322,7 +322,7 @@ else
     fzf_cmd="fzf"
 
     if [[ $TS_USE_TMUX_FLOAT = 1 ]]; then
-      fzf_cmd="fzf --tmux"
+      fzf_cmd="fzf --tmux $TS_FZF_DEFAULT_OPTS"
     fi
 
     if [[ $TS_USE_TMUX_FLOAT = 1 ]] && [[ ! -n $TMUX ]]; then
