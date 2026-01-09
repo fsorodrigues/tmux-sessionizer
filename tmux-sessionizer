@@ -329,7 +329,7 @@ else
       fzf_cmd="fzf --height 40% --border"
     fi 
 
-    selected=$(find_dirs | $fzf_cmd)
+    selected=$(find_dirs | awk '!seen[$0]++' | $fzf_cmd)
 fi
 
 if [[ -z $selected ]]; then
