@@ -168,6 +168,33 @@ is_tmux_running() {
     return 0
 }
 
+is_linked_worktree() {
+    [[ -f "$1/.git" ]]
+}
+
+is_main_worktree_of_multi() {
+    if [[ ! -d "$1/.git" ]]; then
+        return 1
+    fi
+    local count
+    count=$(git -C "$1" worktree list 2>/dev/null | wc -l)
+    [[ "$count" -gt 1 ]]
+}
+
+get_worktree_root() {
+    local main_path
+    main_path=$(git -C "$1" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')
+    local main_name
+    main_name=$(basename "$main_path")
+    # If the main worktree is a hidden/dotfile dir (e.g. .bare), the real
+    # project name is the parent directory
+    if [[ "$main_name" == .* ]]; then
+        basename "$(dirname "$main_path")"
+    else
+        echo "$main_name"
+    fi
+}
+
 init_pane_cache() {
     mkdir -p "$PANE_CACHE_DIR"
     touch "$PANE_CACHE_FILE"
@@ -338,9 +365,18 @@ fi
 
 if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
     selected="${BASH_REMATCH[1]}"
+    selected_name=$(basename "$selected" | tr . _)
+elif is_linked_worktree "$selected"; then
+    worktree_root=$(get_worktree_root "$selected")
+    selected_name="${worktree_root}_$(basename "$selected")"
+    selected_name=$(echo "$selected_name" | tr . _)
+elif is_main_worktree_of_multi "$selected"; then
+    worktree_root=$(get_worktree_root "$selected")
+    selected_name="${worktree_root}_$(basename "$selected")"
+    selected_name=$(echo "$selected_name" | tr . _)
+else
+    selected_name=$(basename "$selected" | tr . _)
 fi
-
-selected_name=$(basename "$selected" | tr . _)
 
 if ! is_tmux_running; then
     tmux new-session -ds "$selected_name" -c "$selected"
