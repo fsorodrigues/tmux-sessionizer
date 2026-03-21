@@ -247,6 +247,35 @@ if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
     TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
 fi
 
+# Filter out filesystem paths that are already represented by an active
+# worktree-style tmux session (name contains __).  [TMUX] lines are emitted
+# first by find_dirs, so by the time filesystem paths arrive we already know
+# which repo__worktree sessions exist.
+dedup_by_name() {
+    declare -A worktree_sessions
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^\[TMUX\]\ (.+__.+)$ ]]; then
+            local sname="${BASH_REMATCH[1]}"
+            worktree_sessions["$sname"]=1
+            echo "$line"
+        elif [[ "$line" =~ ^\[TMUX\] ]]; then
+            echo "$line"
+        else
+            local suppressed=0
+            for sname in "${!worktree_sessions[@]}"; do
+                local repo="${sname%%__*}"
+                local wt="${sname##*__}"
+                if [[ "$line" == *"/$wt" && "$line" == *"/$repo/"* ]]; then
+                    suppressed=1
+                    break
+                fi
+            done
+            [[ $suppressed -eq 0 ]] && echo "$line"
+        fi
+    done
+}
+
 # utility function to find directories
 find_dirs() {
     # list TMUX sessions
@@ -356,7 +385,7 @@ else
       fzf_cmd="fzf --height 40% --border"
     fi 
 
-    selected=$(find_dirs | awk '!seen[$0]++' | $fzf_cmd)
+    selected=$(find_dirs | dedup_by_name | $fzf_cmd)
 fi
 
 if [[ -z $selected ]]; then
@@ -368,11 +397,11 @@ if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
     selected_name=$(basename "$selected" | tr . _)
 elif is_linked_worktree "$selected"; then
     worktree_root=$(get_worktree_root "$selected")
-    selected_name="${worktree_root}_$(basename "$selected")"
+    selected_name="${worktree_root}__$(basename "$selected")"
     selected_name=$(echo "$selected_name" | tr . _)
 elif is_main_worktree_of_multi "$selected"; then
     worktree_root=$(get_worktree_root "$selected")
-    selected_name="${worktree_root}_$(basename "$selected")"
+    selected_name="${worktree_root}__$(basename "$selected")"
     selected_name=$(echo "$selected_name" | tr . _)
 else
     selected_name=$(basename "$selected" | tr . _)
