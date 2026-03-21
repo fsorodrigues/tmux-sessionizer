@@ -397,12 +397,15 @@ if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
     selected_name=$(basename "$selected" | tr . _)
 elif is_linked_worktree "$selected"; then
     worktree_root=$(get_worktree_root "$selected")
-    selected_name="${worktree_root}__$(basename "$selected")"
-    selected_name=$(echo "$selected_name" | tr . _)
+    local_name=$(basename "$selected")
+    if [[ "$worktree_root" == "$local_name" ]]; then
+        selected_name=$(echo "$local_name" | tr . _)
+    else
+        selected_name="${worktree_root}__${local_name}"
+        selected_name=$(echo "$selected_name" | tr . _)
+    fi
 elif is_main_worktree_of_multi "$selected"; then
-    worktree_root=$(get_worktree_root "$selected")
-    selected_name="${worktree_root}__$(basename "$selected")"
-    selected_name=$(echo "$selected_name" | tr . _)
+    selected_name=$(basename "$selected" | tr . _)
 else
     selected_name=$(basename "$selected" | tr . _)
 fi
