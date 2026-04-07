@@ -252,25 +252,26 @@ fi
 # first by find_dirs, so by the time filesystem paths arrive we already know
 # which repo__worktree sessions exist.
 dedup_by_name() {
-    declare -A worktree_sessions
+    local worktree_sessions=""
 
     while IFS= read -r line; do
         if [[ "$line" =~ ^\[TMUX\]\ (.+__.+)$ ]]; then
             local sname="${BASH_REMATCH[1]}"
-            worktree_sessions["$sname"]=1
+            worktree_sessions="${worktree_sessions}${sname}"$'\n'
             echo "$line"
         elif [[ "$line" =~ ^\[TMUX\] ]]; then
             echo "$line"
         else
             local suppressed=0
-            for sname in "${!worktree_sessions[@]}"; do
+            while IFS= read -r sname; do
+                [[ -z "$sname" ]] && continue
                 local repo="${sname%%__*}"
                 local wt="${sname##*__}"
                 if [[ "$line" == *"/$wt" && "$line" == *"/$repo/"* ]]; then
                     suppressed=1
                     break
                 fi
-            done
+            done <<< "$worktree_sessions"
             [[ $suppressed -eq 0 ]] && echo "$line"
         fi
     done
