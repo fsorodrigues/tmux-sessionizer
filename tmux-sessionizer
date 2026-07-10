@@ -386,7 +386,7 @@ else
       fzf_cmd="fzf --height 40% --border"
     fi 
 
-    selected=$(find_dirs | dedup_by_name | $fzf_cmd)
+    selected=$(find_dirs | sort -u | dedup_by_name | $fzf_cmd)
 fi
 
 if [[ -z $selected ]]; then
