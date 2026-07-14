@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "tmux-sessionizer requires bash 4.0+ (uses associative arrays)." >&2
+    echo "Install with: brew install bash" >&2
+    exit 1
+fi
+
 CONFIG_FILE_NAME="tmux-sessionizer.conf"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessionizer"
 CONFIG_FILE="$CONFIG_DIR/$CONFIG_FILE_NAME"
