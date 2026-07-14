@@ -247,32 +247,31 @@ if [[ ${#TS_EXTRA_SEARCH_PATHS[@]} -gt 0 ]]; then
     TS_SEARCH_PATHS+=("${TS_EXTRA_SEARCH_PATHS[@]}")
 fi
 
-# Filter out filesystem paths that are already represented by an active
-# worktree-style tmux session (name contains __).  [TMUX] lines are emitted
-# first by find_dirs, so by the time filesystem paths arrive we already know
-# which repo__worktree sessions exist.
+# Filter out filesystem paths that are already represented by an active tmux
+# session. [TMUX] lines are emitted first by find_dirs, so session lookups are
+# ready before filesystem paths arrive.
 dedup_by_name() {
-    local worktree_sessions=""
+    declare -A sessions=()
 
     while IFS= read -r line; do
-        if [[ "$line" =~ ^\[TMUX\]\ (.+__.+)$ ]]; then
+        if [[ "$line" =~ ^\[TMUX\]\ (.+)$ ]]; then
             local sname="${BASH_REMATCH[1]}"
-            worktree_sessions="${worktree_sessions}${sname}"$'\n'
-            echo "$line"
-        elif [[ "$line" =~ ^\[TMUX\] ]]; then
+            sessions["$sname"]=1
             echo "$line"
         else
-            local suppressed=0
-            while IFS= read -r sname; do
-                [[ -z "$sname" ]] && continue
-                local repo="${sname%%__*}"
-                local wt="${sname##*__}"
-                if [[ "$line" == *"/$wt" && "$line" == *"/$repo/"* ]]; then
-                    suppressed=1
-                    break
-                fi
-            done <<< "$worktree_sessions"
-            [[ $suppressed -eq 0 ]] && echo "$line"
+            local name
+            local parent
+            local worktree_name
+            name="${line##*/}"
+            name="${name//./_}"
+            parent="${line%/*}"
+            parent="${parent##*/}"
+            parent="${parent//./_}"
+            worktree_name="${parent}__${name}"
+
+            if [[ -z "${sessions[$name]+x}" && -z "${sessions[$worktree_name]+x}" ]]; then
+                echo "$line"
+            fi
         fi
     done
 }
@@ -386,7 +385,7 @@ else
       fzf_cmd="fzf --height 40% --border"
     fi 
 
-    selected=$(find_dirs | sort -u | dedup_by_name | $fzf_cmd)
+    selected=$(find_dirs | dedup_by_name | $fzf_cmd)
 fi
 
 if [[ -z $selected ]]; then
