@@ -258,11 +258,17 @@ fi
 # ready before filesystem paths arrive.
 dedup_by_name() {
     declare -A sessions=()
+    declare -A session_paths_by_name=()
+
+    while IFS=$'\t' read -r sname spath; do
+        [[ -n "$sname" && -n "$spath" ]] && session_paths_by_name["$sname"]="$spath"
+    done < <(tmux list-sessions -F "#{session_name}	#{session_path}" 2>/dev/null)
 
     while IFS= read -r line; do
-        if [[ "$line" =~ ^\[TMUX\]\ (.+)$ ]]; then
+        if [[ "$line" =~ ^\[TMUX\]\ ([^[:space:]]+) ]]; then
             local sname="${BASH_REMATCH[1]}"
             sessions["$sname"]=1
+            [[ -n "${session_paths_by_name[$sname]}" ]] && sessions["${session_paths_by_name[$sname]}"]=1
             echo "$line"
         else
             local name
@@ -275,7 +281,7 @@ dedup_by_name() {
             parent="${parent//./_}"
             worktree_name="${parent}__${name}"
 
-            if [[ -z "${sessions[$name]+x}" && -z "${sessions[$worktree_name]+x}" ]]; then
+            if [[ -z "${sessions[$line]+x}" && -z "${sessions[$name]+x}" && -z "${sessions[$worktree_name]+x}" ]]; then
                 echo "$line"
             fi
         fi
@@ -398,7 +404,7 @@ if [[ -z $selected ]]; then
     exit 0
 fi
 
-if [[ "$selected" =~ ^\[TMUX\]\ (.+)$ ]]; then
+if [[ "$selected" =~ ^\[TMUX\]\ ([^[:space:]]+) ]]; then
     selected="${BASH_REMATCH[1]}"
     selected_name=$(basename "$selected" | tr . _)
 elif is_linked_worktree "$selected"; then
